@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @media print {
+            .no-print { display: none; }
+            body { background: white; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/caixas" class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-cash-register text-green-600 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800">Módulo Caixa</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/caixas/{{.caixaID}}/extrato" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-file-alt mr-2"></i>Extrato Simplificado
+                    </a>
+                    <button onclick="window.print()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-print mr-2"></i>Imprimir
+                    </button>
+                    <a href="/caixas" class="text-gray-700 hover:text-green-600">
+                        <i class="fas fa-arrow-left mr-1"></i>Voltar
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div id="relatorioContent" class="bg-white rounded-lg shadow-lg p-8">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-gray-800 mb-2">Relatório de Fechamento de Caixa</h1>
+                <p class="text-gray-600" id="dataRelatorio"></p>
+            </div>
+            <div id="relatorioData">
+                <p class="text-center text-gray-500">Carregando...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        const caixaID = '{{.caixaID}}';
+
+        function getToken() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'auth_token') return value;
+            }
+            return null;
+        }
+
+        async function loadRelatorio() {
+            try {
+                const response = await fetch(`${API_BASE}/caixas/${caixaID}`, {
+                    headers: {
+                        'Authorization': `Bearer ${getToken()}`,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    renderRelatorio(data.data);
+                }
+            } catch (error) {
+                console.error('Erro ao carregar relatório:', error);
+            }
+        }
+
+        function renderRelatorio(data) {
+            const caixa = data.caixa;
+            const movimentacoes = data.movimentacoes || [];
+            const totalEntradas = data.total_entradas || 0;
+            const totalSaidas = data.total_saidas || 0;
+            const saldo = data.saldo_atual || 0;
+
+            document.getElementById('dataRelatorio').textContent = 
+                `Gerado em ${new Date().toLocaleString('pt-BR')}`;
+
+            const entradas = movimentacoes.filter(m => m.tipo === 'entrada');
+            const saidas = movimentacoes.filter(m => m.tipo === 'saida');
+
+            document.getElementById('relatorioData').innerHTML = `
+                <div class="space-y-6">
+                    <!-- Informações do Caixa -->
+                    <div class="border-b pb-4">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Informações do Caixa</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <p class="text-sm text-gray-600">Número do Caixa</p>
+                                <p class="font-semibold">#${caixa.id}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Status</p>
+                                <p class="font-semibold">${caixa.status === 'aberto' ? 'Aberto' : 'Fechado'}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-600">Data de Abertura</p>
+                                <p class="font-semibold">${new Date(caixa.data_abertura).toLocaleString('pt-BR')}</p>
+                            </div>
+                            ${caixa.data_fechamento ? `
+                                <div>
+                                    <p class="text-sm text-gray-600">Data de Fechamento</p>
+                                    <p class="font-semibold">${new Date(caixa.data_fechamento).toLocaleString('pt-BR')}</p>
+                                </div>
+                            ` : ''}
+                            <div>
+                                <p class="text-sm text-gray-600">Valor de Abertura</p>
+                                <p class="font-semibold">R$ ${parseFloat(caixa.valor_abertura).toFixed(2)}</p>
+                            </div>
+                            ${caixa.valor_fechamento ? `
+                                <div>
+                                    <p class="text-sm text-gray-600">Valor de Fechamento</p>
+                                    <p class="font-semibold">R$ ${parseFloat(caixa.valor_fechamento).toFixed(2)}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                        ${caixa.observacoes ? `
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-600">Observações</p>
+                                <p class="font-semibold">${caixa.observacoes}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <!-- Resumo Financeiro -->
+                    <div class="border-b pb-4">
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Resumo Financeiro</h2>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <p class="text-sm text-green-600">Total de Entradas</p>
+                                <p class="text-2xl font-bold text-green-600">R$ ${totalEntradas.toFixed(2)}</p>
+                                <p class="text-xs text-gray-600 mt-1">${entradas.length} movimentação(ões)</p>
+                            </div>
+                            <div class="bg-red-50 p-4 rounded-lg">
+                                <p class="text-sm text-red-600">Total de Saídas</p>
+                                <p class="text-2xl font-bold text-red-600">R$ ${totalSaidas.toFixed(2)}</p>
+                                <p class="text-xs text-gray-600 mt-1">${saidas.length} movimentação(ões)</p>
+                            </div>
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <p class="text-sm text-blue-600">Valor de Abertura</p>
+                                <p class="text-2xl font-bold text-blue-600">R$ ${parseFloat(caixa.valor_abertura).toFixed(2)}</p>
+                            </div>
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <p class="text-sm text-purple-600">Saldo Final</p>
+                                <p class="text-2xl font-bold text-purple-600">R$ ${saldo.toFixed(2)}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Movimentações -->
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-800 mb-4">Movimentações</h2>
+                        ${movimentacoes.length === 0 ? '<p class="text-gray-500">Nenhuma movimentação registrada</p>' : ''}
+                        ${entradas.length > 0 ? `
+                            <div class="mb-6">
+                                <h3 class="text-lg font-semibold text-green-600 mb-2">Entradas</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full border-collapse">
+                                        <thead>
+                                            <tr class="bg-green-50">
+                                                <th class="border p-2 text-left">Data/Hora</th>
+                                                <th class="border p-2 text-left">Descrição</th>
+                                                <th class="border p-2 text-right">Valor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${entradas.map(mov => `
+                                                <tr>
+                                                    <td class="border p-2">${new Date(mov.created_at).toLocaleString('pt-BR')}</td>
+                                                    <td class="border p-2">${mov.descricao}${mov.observacoes ? '<br><small class="text-gray-500">' + mov.observacoes + '</small>' : ''}</td>
+                                                    <td class="border p-2 text-right font-semibold text-green-600">R$ ${parseFloat(mov.valor).toFixed(2)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ` : ''}
+                        ${saidas.length > 0 ? `
+                            <div>
+                                <h3 class="text-lg font-semibold text-red-600 mb-2">Saídas</h3>
+                                <div class="overflow-x-auto">
+                                    <table class="w-full border-collapse">
+                                        <thead>
+                                            <tr class="bg-red-50">
+                                                <th class="border p-2 text-left">Data/Hora</th>
+                                                <th class="border p-2 text-left">Descrição</th>
+                                                <th class="border p-2 text-right">Valor</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${saidas.map(mov => `
+                                                <tr>
+                                                    <td class="border p-2">${new Date(mov.created_at).toLocaleString('pt-BR')}</td>
+                                                    <td class="border p-2">${mov.descricao}${mov.observacoes ? '<br><small class="text-gray-500">' + mov.observacoes + '</small>' : ''}</td>
+                                                    <td class="border p-2 text-right font-semibold text-red-600">R$ ${parseFloat(mov.valor).toFixed(2)}</td>
+                                                </tr>
+                                            `).join('')}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        loadRelatorio();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,33 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: caixa_app
+    ports:
+      - "9286:9286"
+    volumes:
+      - ./web:/app/web
+      # Não montar o diretório raiz para não sobrescrever o binário compilado
+    networks:
+      - caixa_network
+      - sistema_network
+    environment:
+      - APP_NAME=Caixa
+      - APP_ENV=development
+      - APP_PORT=9286
+      - APP_URL=http://localhost:9286
+      - DB_HOST=pratico_mysql
+      - DB_PORT=3306
+      - DB_USERNAME=root
+      - DB_PASSWORD=root
+      - DB_DATABASE=caixa_db
+      - AUTH_SERVICE_URL=http://auth_nginx:80
+    restart: unless-stopped
+
+networks:
+  caixa_network:
+    driver: bridge
+  sistema_network:
+    external: true
+

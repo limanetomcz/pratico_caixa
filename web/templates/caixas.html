@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/dashboard" class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-cash-register text-green-600 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800">Módulo Caixa</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard" class="text-gray-700 hover:text-green-600">
+                        <i class="fas fa-home mr-1"></i>Dashboard
+                    </a>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="bg-white rounded-lg shadow-lg">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-history mr-2"></i>Histórico de Caixas
+                </h2>
+            </div>
+            <div class="p-6">
+                <!-- Filtro por Data -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-filter mr-2"></i>Filtrar por Data
+                    </h3>
+                    <form id="filtroForm" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label for="dataInicio" class="block text-sm font-medium text-gray-700 mb-2">
+                                Data Início
+                            </label>
+                            <input type="date" id="dataInicio" name="data_inicio" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label for="dataFim" class="block text-sm font-medium text-gray-700 mb-2">
+                                Data Fim
+                            </label>
+                            <input type="date" id="dataFim" name="data_fim" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition">
+                                <i class="fas fa-search mr-2"></i>Filtrar
+                            </button>
+                        </div>
+                        <div class="flex items-end">
+                            <button type="button" onclick="limparFiltro()" class="w-full bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
+                                <i class="fas fa-times mr-2"></i>Limpar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div id="caixasList" class="space-y-4">
+                    <p class="text-gray-500 text-center py-8">Carregando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+
+        function getToken() {
+            const cookies = document.cookie.split(';');
+            for (let cookie of cookies) {
+                const [name, value] = cookie.trim().split('=');
+                if (name === 'auth_token') return value;
+            }
+            return null;
+        }
+
+        async function loadCaixas(dataInicio, dataFim) {
+            try {
+                let url = API_BASE + '/caixas';
+                const params = new URLSearchParams();
+                
+                if (dataInicio) {
+                    params.append('data_inicio', dataInicio);
+                }
+                if (dataFim) {
+                    params.append('data_fim', dataFim);
+                }
+                
+                if (params.toString()) {
+                    url += '?' + params.toString();
+                }
+
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': 'Bearer ' + getToken(),
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    displayCaixas(data.data || []);
+                } else {
+                    const errorData = await response.json();
+                    document.getElementById('caixasList').innerHTML = '<p class="text-red-500 text-center py-8">Erro ao carregar caixas: ' + (errorData.message || 'Erro desconhecido') + '</p>';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar caixas:', error);
+                document.getElementById('caixasList').innerHTML = '<p class="text-red-500 text-center py-8">Erro de conexão: ' + error.message + '</p>';
+            }
+        }
+
+        function limparFiltro() {
+            document.getElementById('dataInicio').value = '';
+            document.getElementById('dataFim').value = '';
+            loadCaixas();
+        }
+
+        function displayCaixas(caixas) {
+            const container = document.getElementById('caixasList');
+            
+            if (caixas.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhum caixa encontrado</p>';
+                return;
+            }
+
+            let html = '';
+            for (let i = 0; i < caixas.length; i++) {
+                const item = caixas[i];
+                const caixa = item.caixa;
+                const saldo = item.saldo_atual || 0;
+                const statusClass = caixa.status === 'aberto' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+                const statusIcon = caixa.status === 'aberto' ? 'fa-unlock' : 'fa-lock';
+                const statusText = caixa.status === 'aberto' ? 'Aberto' : 'Fechado';
+                const dataAbertura = new Date(caixa.data_abertura).toLocaleString('pt-BR');
+                const valorAbertura = parseFloat(caixa.valor_abertura).toFixed(2);
+                
+                let dataFechamentoHtml = '';
+                if (caixa.data_fechamento) {
+                    const dataFechamento = new Date(caixa.data_fechamento).toLocaleString('pt-BR');
+                    dataFechamentoHtml = 
+                        '<p class="text-gray-600">' +
+                            '<i class="fas fa-calendar-times mr-1"></i>' +
+                            'Fechamento: ' + dataFechamento +
+                        '</p>';
+                }
+                
+                let botaoRelatorioHtml = '';
+                if (caixa.status === 'fechado') {
+                    botaoRelatorioHtml = 
+                        '<a href="/caixas/' + caixa.id + '/relatorio" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition">' +
+                            '<i class="fas fa-file-alt mr-1"></i>Relatório' +
+                        '</a>';
+                }
+                
+                html += 
+                    '<div class="border rounded-lg p-4 hover:shadow-md transition">' +
+                        '<div class="flex justify-between items-start">' +
+                            '<div class="flex-1">' +
+                                '<div class="flex items-center space-x-2 mb-2">' +
+                                    '<span class="px-3 py-1 rounded-full text-sm font-semibold ' + statusClass + '">' +
+                                        '<i class="fas ' + statusIcon + ' mr-1"></i>' + statusText +
+                                    '</span>' +
+                                '</div>' +
+                                '<h3 class="font-semibold text-lg text-gray-800">' +
+                                    'Caixa #' + caixa.id +
+                                '</h3>' +
+                                '<p class="text-gray-600 mt-1">' +
+                                    '<i class="fas fa-calendar mr-1"></i>' +
+                                    'Abertura: ' + dataAbertura +
+                                '</p>' +
+                                dataFechamentoHtml +
+                                '<p class="text-gray-600">' +
+                                    '<i class="fas fa-dollar-sign mr-1"></i>' +
+                                    'Abertura: R$ ' + valorAbertura +
+                                '</p>' +
+                                '<p class="text-xl font-bold text-green-600 mt-2">' +
+                                    'Saldo: R$ ' + saldo.toFixed(2) +
+                                '</p>' +
+                            '</div>' +
+                            '<div class="flex space-x-2">' +
+                                '<a href="/caixas/' + caixa.id + '" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition">' +
+                                    '<i class="fas fa-eye mr-1"></i>Ver' +
+                                '</a>' +
+                                botaoRelatorioHtml +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function logout() {
+            document.cookie = 'auth_token=; path=/; max-age=0';
+            window.location.href = '/login';
+        }
+
+        // Event listener para o formulário de filtro
+        document.getElementById('filtroForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const dataInicio = document.getElementById('dataInicio').value;
+            const dataFim = document.getElementById('dataFim').value;
+            loadCaixas(dataInicio, dataFim);
+        });
+
+        // Carregar caixas ao carregar a página
+        loadCaixas();
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <!-- Navbar -->
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-cash-register text-green-600 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800">Módulo Caixa</span>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/caixas" class="text-gray-700 hover:text-green-600">
+                        <i class="fas fa-list mr-1"></i>Histórico
+                    </a>
+                    <a href="/categorias" id="linkCategorias" class="text-gray-700 hover:text-green-600 hidden">
+                        <i class="fas fa-tags mr-1"></i>Categorias
+                    </a>
+                    <span class="text-gray-700">
+                        <i class="fas fa-user-circle mr-2"></i>{{.userName}}
+                    </span>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Status do Caixa -->
+        <div id="caixaStatus" class="mb-8">
+            <!-- Será preenchido via JavaScript -->
+        </div>
+
+        <!-- Movimentações -->
+        <div class="bg-white rounded-lg shadow-lg">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-exchange-alt mr-2"></i>Movimentações
+                </h2>
+                <button onclick="openMovimentacaoModal()" id="btnNovaMovimentacao" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition hidden">
+                    <i class="fas fa-plus mr-2"></i>Nova Movimentação
+                </button>
+            </div>
+            <div class="p-6">
+                <div id="movimentacoesList" class="space-y-4">
+                    <p class="text-gray-500 text-center py-8">Carregando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Abrir Caixa -->
+    <div id="abrirCaixaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Abrir Caixa</h3>
+            <form id="abrirCaixaForm" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Valor de Abertura (R$)</label>
+                    <input type="number" id="valorAbertura" step="0.01" min="0" required class="w-full px-4 py-2 border rounded-lg" placeholder="0.00">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Observações</label>
+                    <textarea id="observacoesAbertura" class="w-full px-4 py-2 border rounded-lg" rows="3"></textarea>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                        Abrir Caixa
+                    </button>
+                    <button type="button" onclick="closeAbrirCaixaModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal Fechar Caixa -->
+    <div id="fecharCaixaModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Fechar Caixa</h3>
+            <div class="mb-4">
+                <p class="text-gray-600 mb-2">Saldo Atual: <span id="saldoFechamento" class="font-bold text-green-600"></span></p>
+                <p class="text-sm text-gray-500">Tem certeza que deseja fechar o caixa?</p>
+            </div>
+            <div class="flex space-x-4">
+                <button onclick="confirmarFechamento()" class="flex-1 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg">
+                    Fechar Caixa
+                </button>
+                <button onclick="closeFecharCaixaModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg">
+                    Cancelar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Nova Movimentação -->
+    <div id="movimentacaoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Nova Movimentação</h3>
+            <form id="movimentacaoForm" class="space-y-4">
+                <input type="hidden" id="caixaIdMov">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+                    <select id="tipoMovimentacao" required class="w-full px-4 py-2 border rounded-lg" onchange="carregarCategorias()">
+                        <option value="entrada" selected>Entrada</option>
+                        <option value="saida">Saída</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Categoria (Opcional)</label>
+                    <select id="categoriaMovimentacao" class="w-full px-4 py-2 border rounded-lg">
+                        <option value="">Selecione uma categoria</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Valor (R$)</label>
+                    <input type="number" id="valorMovimentacao" step="0.01" min="0.01" required class="w-full px-4 py-2 border rounded-lg" placeholder="0.00">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Descrição</label>
+                    <input type="text" id="descricaoMovimentacao" required class="w-full px-4 py-2 border rounded-lg" placeholder="Ex: Venda, Pagamento, etc">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Observações</label>
+                    <textarea id="observacoesMovimentacao" class="w-full px-4 py-2 border rounded-lg" rows="3"></textarea>
+                </div>
+                <div class="flex space-x-4">
+                    <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+                        Salvar
+                    </button>
+                    <button type="button" onclick="closeMovimentacaoModal()" class="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg">
+                        Cancelar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        let caixaAtual = null;
+        
+        // Role do usuário passado pelo servidor
+        const USER_ROLE = '{{.userRole}}' || '';
+        console.log('👤 Role do usuário recebido do servidor:', USER_ROLE, 'Tipo:', typeof USER_ROLE);
+        
+        // Mostrar/ocultar link de categorias baseado no role
+        function verificarPermissaoCategorias() {
+            const linkCategorias = document.getElementById('linkCategorias');
+            if (linkCategorias) {
+                const isAdmin = USER_ROLE === 'admin' || USER_ROLE === 'super_admin';
+                console.log('🔐 Verificando permissão - Role:', USER_ROLE, 'É admin?', isAdmin);
+                if (isAdmin) {
+                    linkCategorias.classList.remove('hidden');
+                    console.log('✅ Link de categorias exibido');
+                } else {
+                    linkCategorias.classList.add('hidden');
+                    console.log('❌ Link de categorias oculto (usuário não é admin)');
+                }
+            } else {
+                console.error('❌ Elemento linkCategorias não encontrado');
+            }
+        }
+        
+        // Executar quando a página carregar
+        window.addEventListener('DOMContentLoaded', function() {
+            verificarPermissaoCategorias();
+        });
+        
+        // Executar imediatamente também (caso o DOM já esteja carregado)
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', verificarPermissaoCategorias);
+        } else {
+            verificarPermissaoCategorias();
+        }
+        
+        // Token passado pelo servidor (se disponível)
+        let SERVER_TOKEN = null;
+        {{if .tokenJSON}}
+        try {
+            const tokenJSON = {{.tokenJSON}};
+            if (tokenJSON && tokenJSON !== 'null' && tokenJSON !== '""') {
+                SERVER_TOKEN = JSON.parse(tokenJSON);
+                console.log('🔑 Token do servidor (JSON):', SERVER_TOKEN ? 'SIM (tamanho: ' + SERVER_TOKEN.length + ')' : 'NÃO');
+            } else {
+                console.log('🔑 Token do servidor: JSON vazio ou null');
+            }
+        } catch (e) {
+            console.error('❌ Erro ao parsear token do servidor:', e, 'tokenJSON:', {{.tokenJSON}});
+        }
+        {{else}}
+        console.log('🔑 Token do servidor: NÃO disponível no template');
+        {{end}}
+
+        function getToken() {
+            // Priorizar token do servidor (mais confiável)
+            if (SERVER_TOKEN && SERVER_TOKEN !== null && SERVER_TOKEN !== 'null' && SERVER_TOKEN !== '') {
+                console.log('✅ Usando token do servidor (tamanho: ' + SERVER_TOKEN.length + ')');
+                return SERVER_TOKEN;
+            }
+            
+            // Debug: mostrar todos os cookies
+            console.log('🔍 document.cookie completo:', document.cookie);
+            console.log('🔍 Tipo de document.cookie:', typeof document.cookie);
+            console.log('🔍 Tamanho de document.cookie:', document.cookie ? document.cookie.length : 0);
+            
+            // Tentar obter do cookie
+            if (!document.cookie || document.cookie.length === 0) {
+                console.warn('❌ document.cookie está vazio');
+                return null;
+            }
+            
+            const cookies = document.cookie.split(';');
+            console.log('🔍 Número de cookies encontrados:', cookies.length);
+            
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i];
+                const trimmed = cookie.trim();
+                if (!trimmed) {
+                    console.log('🔍 Cookie vazio na posição', i);
+                    continue;
+                }
+                
+                console.log('🔍 Processando cookie:', trimmed.substring(0, 50) + '...');
+                
+                const equalIndex = trimmed.indexOf('=');
+                if (equalIndex === -1) {
+                    console.log('🔍 Cookie sem "=", ignorando');
+                    continue;
+                }
+                
+                const name = trimmed.substring(0, equalIndex).trim();
+                const value = trimmed.substring(equalIndex + 1);
+                
+                console.log('🔍 Nome do cookie:', name, 'Tamanho do valor:', value.length);
+                
+                if (name === 'auth_token') {
+                    try {
+                        const decoded = decodeURIComponent(value);
+                        console.log('✅ Token encontrado no cookie! Tamanho:', decoded.length, 'Primeiros 20 chars:', decoded.substring(0, 20) + '...');
+                        return decoded;
+                    } catch (e) {
+                        // Se falhar ao decodificar, usar o valor original
+                        console.log('✅ Token encontrado no cookie (sem decodificar)! Tamanho:', value.length);
+                        return value;
+                    }
+                }
+            }
+            console.warn('❌ Token "auth_token" não encontrado nos cookies. Cookies disponíveis:', cookies.map(c => c.trim().substring(0, 30)).join(', '));
+            return null;
+        }
+
+        async function loadCaixaAtual() {
+            const container = document.getElementById('movimentacoesList');
+            container.innerHTML = '<p class="text-gray-500 text-center py-8">Carregando...</p>';
+            
+            try {
+                const token = getToken();
+                console.log('Token obtido:', token ? 'SIM (primeiros 20 chars: ' + token.substring(0, 20) + '...)' : 'NÃO');
+                
+                if (!token) {
+                    console.error('Token não encontrado - redirecionando para login');
+                    // Tentar redirecionar para login após 2 segundos
+                    setTimeout(function() {
+                        window.location.href = '/login';
+                    }, 2000);
+                    container.innerHTML = '<p class="text-red-500 text-center py-8">Token não encontrado. Redirecionando para login...</p>';
+                    return;
+                }
+
+                const response = await fetch(API_BASE + '/caixa/atual', {
+                    method: 'GET',
+                    credentials: 'include', // Incluir cookies na requisição
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Accept': 'application/json'
+                    }
+                });
+
+                console.log('Response status:', response.status);
+
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('Response data:', result);
+                    
+                    if (result.success) {
+                        // Se data é null, não há caixa aberto
+                        if (result.data === null || result.data === undefined) {
+                            caixaAtual = null;
+                            renderCaixaStatus();
+                            container.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhum caixa aberto. Abra um caixa para ver as movimentações.</p>';
+                        } else {
+                            caixaAtual = result.data;
+                            renderCaixaStatus();
+                            if (caixaAtual && caixaAtual.caixa) {
+                                loadMovimentacoes();
+                            } else {
+                                container.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhum caixa aberto. Abra um caixa para ver as movimentações.</p>';
+                            }
+                        }
+                    } else {
+                        container.innerHTML = '<p class="text-red-500 text-center py-8">Erro: ' + (result.message || 'Erro desconhecido') + '</p>';
+                    }
+                } else {
+                    const errorData = await response.json().catch(() => ({ message: 'Erro ao processar resposta' }));
+                    console.error('Erro na resposta:', errorData);
+                    container.innerHTML = '<p class="text-red-500 text-center py-8">Erro ao carregar caixa: ' + (errorData.message || 'Erro desconhecido') + '</p>';
+                }
+            } catch (error) {
+                console.error('Erro ao carregar caixa:', error);
+                container.innerHTML = '<p class="text-red-500 text-center py-8">Erro de conexão: ' + error.message + '</p>';
+            }
+        }
+
+        function renderCaixaStatus() {
+            const container = document.getElementById('caixaStatus');
+            
+            if (!caixaAtual || !caixaAtual.caixa) {
+                container.innerHTML = 
+                    '<div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">' +
+                        '<div class="flex items-center justify-between">' +
+                            '<div>' +
+                                '<h3 class="text-lg font-semibold text-yellow-800">Nenhum caixa aberto</h3>' +
+                                '<p class="text-yellow-600 mt-1">Abra um caixa para começar a trabalhar</p>' +
+                            '</div>' +
+                            '<button onclick="openAbrirCaixaModal()" class="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition">' +
+                                '<i class="fas fa-cash-register mr-2"></i>Abrir Caixa' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>';
+                document.getElementById('btnNovaMovimentacao').classList.add('hidden');
+            } else {
+                const saldo = caixaAtual.saldo_atual || 0;
+                const dataAbertura = new Date(caixaAtual.caixa.data_abertura).toLocaleString('pt-BR');
+                const valorAbertura = parseFloat(caixaAtual.caixa.valor_abertura).toFixed(2);
+                const saldoFormatado = saldo.toFixed(2);
+                container.innerHTML = 
+                    '<div class="bg-green-50 border border-green-200 rounded-lg p-6">' +
+                        '<div class="flex items-center justify-between">' +
+                            '<div>' +
+                                '<h3 class="text-lg font-semibold text-green-800">Caixa Aberto</h3>' +
+                                '<p class="text-green-600 mt-1">' +
+                                    'Abertura: ' + dataAbertura + ' | ' +
+                                    'Valor Abertura: R$ ' + valorAbertura +
+                                '</p>' +
+                                '<p class="text-2xl font-bold text-green-700 mt-2">Saldo Atual: R$ ' + saldoFormatado + '</p>' +
+                            '</div>' +
+                            '<button onclick="openFecharCaixaModal()" class="bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-lg transition">' +
+                                '<i class="fas fa-lock mr-2"></i>Fechar Caixa' +
+                            '</button>' +
+                        '</div>' +
+                    '</div>';
+                document.getElementById('btnNovaMovimentacao').classList.remove('hidden');
+            }
+        }
+
+        function loadMovimentacoes() {
+            if (!caixaAtual || !caixaAtual.caixa) {
+                const container = document.getElementById('movimentacoesList');
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhum caixa aberto</p>';
+                return;
+            }
+
+            const container = document.getElementById('movimentacoesList');
+            const movimentacoes = caixaAtual.movimentacoes || [];
+
+            if (movimentacoes.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhuma movimentação registrada</p>';
+                return;
+            }
+
+            let html = '';
+            for (let i = 0; i < movimentacoes.length; i++) {
+                const mov = movimentacoes[i];
+                const tipoClass = mov.tipo === 'entrada' ? 'text-green-600' : 'text-red-600';
+                const tipoIcon = mov.tipo === 'entrada' ? 'fa-arrow-down' : 'fa-arrow-up';
+                const tipoTexto = mov.tipo === 'entrada' ? 'Entrada' : 'Saída';
+                const sinal = mov.tipo === 'entrada' ? '+' : '-';
+                const valorFormatado = parseFloat(mov.valor).toFixed(2);
+                const dataFormatada = new Date(mov.created_at).toLocaleString('pt-BR');
+                const observacoesHtml = mov.observacoes ? '<p class="text-gray-600 text-sm mt-1">' + mov.observacoes + '</p>' : '';
+                
+                // Categoria
+                let categoriaHtml = '';
+                if (mov.categoria) {
+                    const corCategoria = mov.categoria.cor || '#3B82F6';
+                    const iconeCategoria = mov.categoria.icone ? 'fas ' + mov.categoria.icone : '';
+                    categoriaHtml = 
+                        '<div class="flex items-center space-x-2 mt-1">' +
+                            '<span class="px-2 py-1 rounded text-xs font-medium" style="background-color: ' + corCategoria + '20; color: ' + corCategoria + ';">' +
+                                (iconeCategoria ? '<i class="' + iconeCategoria + ' mr-1"></i>' : '') +
+                                mov.categoria.nome +
+                            '</span>' +
+                        '</div>';
+                }
+                
+                html += 
+                    '<div class="border rounded-lg p-4 hover:shadow-md transition">' +
+                        '<div class="flex justify-between items-start">' +
+                            '<div class="flex-1">' +
+                                '<div class="flex items-center space-x-2">' +
+                                    '<i class="fas ' + tipoIcon + ' ' + tipoClass + '"></i>' +
+                                    '<h3 class="font-semibold text-lg ' + tipoClass + '">' + tipoTexto + '</h3>' +
+                                '</div>' +
+                                '<p class="text-gray-800 mt-1">' + mov.descricao + '</p>' +
+                                categoriaHtml +
+                                observacoesHtml +
+                                '<p class="text-gray-500 text-sm mt-2">' + dataFormatada + '</p>' +
+                            '</div>' +
+                            '<div class="text-right">' +
+                                '<p class="text-xl font-bold ' + tipoClass + '">' +
+                                    sinal + ' R$ ' + valorFormatado +
+                                '</p>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function openAbrirCaixaModal() {
+            document.getElementById('abrirCaixaModal').classList.remove('hidden');
+        }
+
+        function closeAbrirCaixaModal() {
+            document.getElementById('abrirCaixaModal').classList.add('hidden');
+        }
+
+        function openFecharCaixaModal() {
+            if (caixaAtual && caixaAtual.saldo_atual !== undefined) {
+                document.getElementById('saldoFechamento').textContent = 'R$ ' + caixaAtual.saldo_atual.toFixed(2);
+                document.getElementById('fecharCaixaModal').classList.remove('hidden');
+            }
+        }
+
+        function closeFecharCaixaModal() {
+            document.getElementById('fecharCaixaModal').classList.add('hidden');
+        }
+
+        let categorias = [];
+        
+        async function carregarCategorias() {
+            const tipoSelect = document.getElementById('tipoMovimentacao');
+            const tipo = tipoSelect ? tipoSelect.value : 'entrada';
+            const token = getToken();
+            
+            console.log('📋 Carregando categorias para tipo:', tipo);
+            
+            if (!token) {
+                console.warn('⚠️ Token não encontrado para carregar categorias');
+                return;
+            }
+            
+            try {
+                const url = API_BASE + '/categorias?tipo=' + tipo;
+                console.log('🔗 URL da requisição:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Accept': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+                
+                console.log('📡 Resposta da API - Status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('📦 Dados recebidos:', data);
+                    categorias = data.data || [];
+                    console.log('✅ Categorias carregadas:', categorias.length, categorias);
+                    atualizarSelectCategorias();
+                } else {
+                    const errorData = await response.json();
+                    console.error('❌ Erro na resposta:', errorData);
+                }
+            } catch (error) {
+                console.error('❌ Erro ao carregar categorias:', error);
+            }
+        }
+        
+        function atualizarSelectCategorias() {
+            const select = document.getElementById('categoriaMovimentacao');
+            if (!select) {
+                console.error('❌ Select categoriaMovimentacao não encontrado');
+                return;
+            }
+            
+            select.innerHTML = '<option value="">Selecione uma categoria</option>';
+            
+            console.log('🔄 Atualizando select com', categorias.length, 'categorias');
+            
+            for (let i = 0; i < categorias.length; i++) {
+                const cat = categorias[i];
+                const option = document.createElement('option');
+                option.value = cat.id;
+                let texto = cat.nome;
+                if (cat.icone) {
+                    texto = cat.nome + ' (' + cat.icone + ')';
+                }
+                option.textContent = texto;
+                select.appendChild(option);
+                console.log('  ✓ Adicionada categoria:', cat.nome, 'ID:', cat.id, 'Tipo:', cat.tipo);
+            }
+            
+            console.log('✅ Select atualizado com', select.options.length - 1, 'categorias');
+        }
+        
+        function openMovimentacaoModal() {
+            if (caixaAtual && caixaAtual.caixa) {
+                document.getElementById('caixaIdMov').value = caixaAtual.caixa.id;
+                
+                // Garantir que o tipo padrão está selecionado
+                const tipoSelect = document.getElementById('tipoMovimentacao');
+                if (tipoSelect) {
+                    tipoSelect.value = 'entrada';
+                }
+                
+                document.getElementById('movimentacaoModal').classList.remove('hidden');
+                
+                // Aguardar um pouco para garantir que o modal está visível antes de carregar categorias
+                setTimeout(function() {
+                    console.log('📂 Abrindo modal de movimentação, tipo atual:', tipoSelect ? tipoSelect.value : 'não encontrado');
+                    carregarCategorias();
+                }, 100);
+            }
+        }
+
+        function closeMovimentacaoModal() {
+            document.getElementById('movimentacaoModal').classList.add('hidden');
+            document.getElementById('movimentacaoForm').reset();
+        }
+
+        document.getElementById('abrirCaixaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const valor = parseFloat(document.getElementById('valorAbertura').value);
+            const observacoes = document.getElementById('observacoesAbertura').value;
+
+            try {
+                const response = await fetch(API_BASE + '/caixa/abrir', {
+                    method: 'POST',
+                    credentials: 'include', // Incluir cookies na requisição
+                    headers: {
+                        'Authorization': 'Bearer ' + getToken(),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        valor_abertura: valor,
+                        observacoes: observacoes
+                    })
+                });
+
+                if (response.ok) {
+                    closeAbrirCaixaModal();
+                    loadCaixaAtual();
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'Erro ao abrir caixa');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao abrir caixa');
+            }
+        });
+
+        document.getElementById('movimentacaoForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const caixaId = parseInt(document.getElementById('caixaIdMov').value);
+            const tipo = document.getElementById('tipoMovimentacao').value;
+            const categoriaId = document.getElementById('categoriaMovimentacao').value;
+            const valor = parseFloat(document.getElementById('valorMovimentacao').value);
+            const descricao = document.getElementById('descricaoMovimentacao').value;
+            const observacoes = document.getElementById('observacoesMovimentacao').value;
+
+            const bodyData = {
+                caixa_id: caixaId,
+                tipo: tipo,
+                valor: valor,
+                descricao: descricao,
+                observacoes: observacoes
+            };
+            
+            // Adicionar categoria_id apenas se selecionada
+            if (categoriaId && categoriaId !== '') {
+                bodyData.categoria_id = parseInt(categoriaId);
+            }
+
+            try {
+                const response = await fetch(API_BASE + '/movimentacoes', {
+                    method: 'POST',
+                    credentials: 'include', // Incluir cookies na requisição
+                    headers: {
+                        'Authorization': 'Bearer ' + getToken(),
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(bodyData)
+                });
+
+                if (response.ok) {
+                    closeMovimentacaoModal();
+                    loadCaixaAtual();
+                } else {
+                    const data = await response.json();
+                    alert(data.message || 'Erro ao criar movimentação');
+                }
+            } catch (error) {
+                console.error('Erro:', error);
+                alert('Erro ao criar movimentação');
+            }
+        });
+
+        function confirmarFechamento() {
+            if (!caixaAtual || !caixaAtual.caixa) return;
+
+            const token = getToken();
+            if (!token) {
+                alert('Token não encontrado. Faça login novamente.');
+                window.location.href = '/login';
+                return;
+            }
+
+            fetch(API_BASE + '/caixas/' + caixaAtual.caixa.id + '/fechar', {
+                method: 'POST',
+                credentials: 'include', // Incluir cookies na requisição
+                headers: {
+                    'Authorization': 'Bearer ' + token,
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(err.message || 'Erro ao fechar caixa');
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    closeFecharCaixaModal();
+                    window.location.href = '/caixas/' + caixaAtual.caixa.id + '/relatorio';
+                } else {
+                    alert(data.message || 'Erro ao fechar caixa');
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Erro ao fechar caixa: ' + error.message);
+            });
+        }
+
+        function logout() {
+            document.cookie = 'auth_token=; path=/; max-age=0';
+            window.location.href = '/login';
+        }
+
+        // Verificar token ao carregar a página
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 Página carregada, verificando token...');
+            
+            // Função para tentar carregar dados
+            function tentarCarregar() {
+                const token = getToken();
+                if (token) {
+                    console.log('✅ Token encontrado, carregando dados do caixa...');
+                    loadCaixaAtual();
+                    return true;
+                }
+                return false;
+            }
+            
+            // Verificar se há token na URL (pode estar sendo processado pelo servidor)
+            const urlParams = new URLSearchParams(window.location.search);
+            const tokenFromURL = urlParams.get('token');
+            
+            if (tokenFromURL) {
+                console.log('🔗 Token encontrado na URL, aguardando servidor processar...');
+                // O servidor vai processar e salvar o cookie, aguardar um pouco
+                setTimeout(function() {
+                    if (!tentarCarregar()) {
+                        // Tentar mais uma vez após mais tempo
+                        setTimeout(function() {
+                            if (!tentarCarregar()) {
+                                console.error('❌ Token não encontrado após múltiplas tentativas');
+                            }
+                        }, 500);
+                    }
+                }, 500); // Aguardar 500ms para o servidor processar
+                return;
+            }
+            
+            // Se não tem token na URL, verificar cookie imediatamente
+            if (!tentarCarregar()) {
+                console.warn('⚠️ Token não encontrado - aguardando um pouco antes de redirecionar...');
+                setTimeout(function() {
+                    const token = getToken();
+                    if (!token) {
+                        console.warn('⚠️ Token ainda não encontrado - redirecionando para login');
+                        window.location.href = '/login';
+                    } else {
+                        loadCaixaAtual();
+                    }
+                }, 1000);
+            }
+        });
+    </script>
+</body>
+</html>
+
+

@@ -1,0 +1,9 @@
+.env
+*.log
+vendor/
+.git/
+.gitignore
+README.md
+*.md
+!go.sum
+

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.title}}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50">
+    <nav class="bg-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/caixas" class="flex-shrink-0 flex items-center">
+                        <i class="fas fa-cash-register text-green-600 text-2xl mr-2"></i>
+                        <span class="text-xl font-bold text-gray-800">Módulo Caixa</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div id="relatorioButtons" class="hidden">
+                        <a id="linkRelatorio" href="#" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-file-alt mr-2"></i>Relatório Completo
+                        </a>
+                        <a id="linkExtrato" href="#" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition">
+                            <i class="fas fa-file-invoice mr-2"></i>Extrato Simplificado
+                        </a>
+                    </div>
+                    <a href="/caixas" class="text-gray-700 hover:text-green-600">
+                        <i class="fas fa-arrow-left mr-1"></i>Voltar
+                    </a>
+                    <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Sair
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div id="caixaInfo" class="mb-8">
+            <!-- Será preenchido via JavaScript -->
+        </div>
+
+        <div class="bg-white rounded-lg shadow-lg">
+            <div class="p-6 border-b border-gray-200">
+                <h2 class="text-2xl font-bold text-gray-800">
+                    <i class="fas fa-exchange-alt mr-2"></i>Movimentações
+                </h2>
+            </div>
+            <div class="p-6">
+                <div id="movimentacoesList" class="space-y-4">
+                    <p class="text-gray-500 text-center py-8">Carregando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        const caixaID = '{{.caixaID}}';
+
+        function getToken() {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (!cookie) continue;
+                const parts = cookie.split('=');
+                if (parts.length >= 2) {
+                    const name = parts[0].trim();
+                    let value = parts.slice(1).join('=');
+                    try {
+                        value = decodeURIComponent(value);
+                    } catch (e) {
+                        // Se falhar, usar o valor original
+                    }
+                    if (name === 'auth_token') {
+                        return value;
+                    }
+                }
+            }
+            return null;
+        }
+
+        async function loadCaixa() {
+            const token = getToken();
+            if (!token) {
+                console.error('Token não encontrado');
+                document.getElementById('caixaInfo').innerHTML = '<p class="text-red-500">Erro: Token não encontrado. Faça login novamente.</p>';
+                return;
+            }
+
+            try {
+                const response = await fetch(API_BASE + '/caixas/' + caixaID, {
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Erro ao carregar caixa');
+                }
+
+                const data = await response.json();
+                if (data.success && data.data) {
+                    renderCaixaInfo(data.data);
+                    displayMovimentacoes(data.data.movimentacoes || []);
+                } else {
+                    throw new Error('Dados inválidos na resposta');
+                }
+            } catch (error) {
+                console.error('Erro ao carregar caixa:', error);
+                document.getElementById('caixaInfo').innerHTML = '<p class="text-red-500">Erro ao carregar dados do caixa: ' + error.message + '</p>';
+                document.getElementById('movimentacoesList').innerHTML = '<p class="text-red-500 text-center py-8">Erro ao carregar movimentações</p>';
+            }
+        }
+
+        function renderCaixaInfo(data) {
+            const caixa = data.caixa;
+            const saldo = data.saldo_atual || 0;
+            const totalEntradas = data.total_entradas || 0;
+            const totalSaidas = data.total_saidas || 0;
+            const statusClass = caixa.status === 'aberto' ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200';
+            const statusTextClass = caixa.status === 'aberto' ? 'text-green-600' : 'text-gray-600';
+            const statusText = caixa.status === 'aberto' ? 'Aberto' : 'Fechado';
+            
+            const dataAbertura = new Date(caixa.data_abertura).toLocaleString('pt-BR');
+            const valorAbertura = parseFloat(caixa.valor_abertura).toFixed(2);
+            
+            let dataFechamentoHtml = '';
+            if (caixa.data_fechamento) {
+                const dataFechamento = new Date(caixa.data_fechamento).toLocaleString('pt-BR');
+                dataFechamentoHtml = 
+                    '<div>' +
+                        '<p class="text-sm text-gray-600">Data de Fechamento</p>' +
+                        '<p class="text-lg font-semibold text-gray-800">' + dataFechamento + '</p>' +
+                    '</div>';
+            }
+
+            const html = 
+                '<div class="bg-white rounded-lg shadow-lg p-6 ' + statusClass + ' border-2">' +
+                    '<div class="grid grid-cols-1 md:grid-cols-3 gap-6">' +
+                        '<div>' +
+                            '<p class="text-sm text-gray-600">Status</p>' +
+                            '<p class="text-lg font-semibold ' + statusTextClass + '">' + statusText + '</p>' +
+                        '</div>' +
+                        '<div>' +
+                            '<p class="text-sm text-gray-600">Data de Abertura</p>' +
+                            '<p class="text-lg font-semibold text-gray-800">' + dataAbertura + '</p>' +
+                        '</div>' +
+                        dataFechamentoHtml +
+                    '</div>' +
+                    '<div class="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">' +
+                        '<div class="bg-white p-4 rounded-lg">' +
+                            '<p class="text-sm text-gray-600">Valor de Abertura</p>' +
+                            '<p class="text-xl font-bold text-gray-800">R$ ' + valorAbertura + '</p>' +
+                        '</div>' +
+                        '<div class="bg-green-50 p-4 rounded-lg">' +
+                            '<p class="text-sm text-green-600">Total Entradas</p>' +
+                            '<p class="text-xl font-bold text-green-600">R$ ' + totalEntradas.toFixed(2) + '</p>' +
+                        '</div>' +
+                        '<div class="bg-red-50 p-4 rounded-lg">' +
+                            '<p class="text-sm text-red-600">Total Saídas</p>' +
+                            '<p class="text-xl font-bold text-red-600">R$ ' + totalSaidas.toFixed(2) + '</p>' +
+                        '</div>' +
+                        '<div class="bg-blue-50 p-4 rounded-lg">' +
+                            '<p class="text-sm text-blue-600">Saldo Atual</p>' +
+                            '<p class="text-xl font-bold text-blue-600">R$ ' + saldo.toFixed(2) + '</p>' +
+                        '</div>' +
+                    '</div>' +
+                '</div>';
+
+            document.getElementById('caixaInfo').innerHTML = html;
+            
+            // Mostrar botões de relatório se o caixa estiver fechado
+            if (caixa.status === 'fechado') {
+                const relatorioButtons = document.getElementById('relatorioButtons');
+                const linkRelatorio = document.getElementById('linkRelatorio');
+                const linkExtrato = document.getElementById('linkExtrato');
+                
+                if (relatorioButtons && linkRelatorio && linkExtrato) {
+                    relatorioButtons.classList.remove('hidden');
+                    linkRelatorio.href = '/caixas/' + caixa.id + '/relatorio';
+                    linkExtrato.href = '/caixas/' + caixa.id + '/extrato';
+                }
+            }
+        }
+
+        function displayMovimentacoes(movimentacoes) {
+            const container = document.getElementById('movimentacoesList');
+            
+            if (movimentacoes.length === 0) {
+                container.innerHTML = '<p class="text-gray-500 text-center py-8">Nenhuma movimentação encontrada</p>';
+                return;
+            }
+
+            let html = '';
+            for (let i = 0; i < movimentacoes.length; i++) {
+                const mov = movimentacoes[i];
+                const tipoClass = mov.tipo === 'entrada' ? 'text-green-600' : 'text-red-600';
+                const tipoIcon = mov.tipo === 'entrada' ? 'fa-arrow-down' : 'fa-arrow-up';
+                const tipoTexto = mov.tipo === 'entrada' ? 'Entrada' : 'Saída';
+                const sinal = mov.tipo === 'entrada' ? '+' : '-';
+                const valorFormatado = parseFloat(mov.valor).toFixed(2);
+                const dataFormatada = new Date(mov.created_at).toLocaleString('pt-BR');
+                const observacoesHtml = mov.observacoes ? '<p class="text-gray-600 text-sm mt-1">' + mov.observacoes + '</p>' : '';
+                
+                html += 
+                    '<div class="border rounded-lg p-4 hover:shadow-md transition">' +
+                        '<div class="flex justify-between items-start">' +
+                            '<div class="flex-1">' +
+                                '<div class="flex items-center space-x-2">' +
+                                    '<i class="fas ' + tipoIcon + ' ' + tipoClass + '"></i>' +
+                                    '<h3 class="font-semibold text-lg ' + tipoClass + '">' + tipoTexto + '</h3>' +
+                                '</div>' +
+                                '<p class="text-gray-800 mt-1">' + mov.descricao + '</p>' +
+                                observacoesHtml +
+                                '<p class="text-gray-500 text-sm mt-2">' + dataFormatada + '</p>' +
+                            '</div>' +
+                            '<div class="text-right">' +
+                                '<p class="text-xl font-bold ' + tipoClass + '">' +
+                                    sinal + ' R$ ' + valorFormatado +
+                                '</p>' +
+                            '</div>' +
+                        '</div>' +
+                    '</div>';
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function logout() {
+            document.cookie = 'auth_token=; path=/; max-age=0';
+            window.location.href = '/login';
+        }
+
+        // Carregar dados quando a página carregar
+        window.addEventListener('DOMContentLoaded', function() {
+            loadCaixa();
+        });
+    </script>
+</body>
+</html>
