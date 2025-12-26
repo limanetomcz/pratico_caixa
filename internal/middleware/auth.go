@@ -127,7 +127,13 @@ func JWTAuth() gin.HandlerFunc {
 		if err != nil {
 			log.Printf("❌ Erro ao validar token: %v", err)
 			if isWebRequest {
-				c.Redirect(http.StatusFound, "/login")
+				// Verificar se o erro é de token expirado
+				errMsg := strings.ToLower(err.Error())
+				if strings.Contains(errMsg, "expired") || strings.Contains(errMsg, "expirado") {
+					c.Redirect(http.StatusFound, "/login?expired=1")
+				} else {
+					c.Redirect(http.StatusFound, "/login")
+				}
 				c.Abort()
 				return
 			}

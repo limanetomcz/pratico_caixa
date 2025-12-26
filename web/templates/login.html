@@ -58,6 +58,29 @@
     </div>
 
     <script>
+        // Verificar se há parâmetros de erro na URL ao carregar a página
+        window.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const error = urlParams.get('error');
+            const expired = urlParams.get('expired');
+            
+            const errorDiv = document.getElementById('errorMessage');
+            
+            // Só mostrar mensagem de erro se houver parâmetro na URL
+            if (error || expired) {
+                if (expired) {
+                    errorDiv.textContent = 'Sua sessão expirou. Por favor, faça login novamente.';
+                } else if (error) {
+                    errorDiv.textContent = decodeURIComponent(error);
+                }
+                errorDiv.classList.remove('hidden');
+                
+                // Limpar parâmetros da URL para não mostrar a mensagem novamente ao recarregar
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            }
+        });
+        
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             
